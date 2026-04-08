@@ -15,9 +15,13 @@ namespace Pattonwebz\WpStaleCache;
  */
 class TransientStaleCache
 {
-    public function __construct(
-        private readonly string $prefix = '_wpsc_',
-    ) {}
+    /** @var string */
+    private string $prefix;
+
+    public function __construct(string $prefix = '_wpsc_')
+    {
+        $this->prefix = $prefix;
+    }
 
     // -------------------------------------------------------------------------
     // Public API
@@ -41,8 +45,8 @@ class TransientStaleCache
         string $key,
         callable $generator,
         int $ttl = 3600,
-        int $staleOffset = 300,
-    ): mixed {
+        int $staleOffset = 300
+    ) {
         $prefixedKey = $this->prefix . $key;
         $metaKey = $prefixedKey . '_meta';
 
@@ -55,11 +59,13 @@ class TransientStaleCache
         $entry = CacheEntry::fromArray($rawMeta);
         $state = $entry->getState(time());
 
-        return match ($state) {
-            'fresh'   => get_transient($prefixedKey),
-            'stale'   => $this->serveStale($prefixedKey, $metaKey, $entry, $generator, $ttl, $staleOffset),
-            'expired' => $this->regenerate($prefixedKey, $metaKey, $generator, $ttl, $staleOffset),
-        };
+        if ($state === 'fresh') {
+            return get_transient($prefixedKey);
+        }
+        if ($state === 'stale') {
+            return $this->serveStale($prefixedKey, $metaKey, $entry, $generator, $ttl, $staleOffset);
+        }
+        return $this->regenerate($prefixedKey, $metaKey, $generator, $ttl, $staleOffset);
     }
 
     /**
@@ -84,13 +90,10 @@ class TransientStaleCache
         string $metaKey,
         callable $generator,
         int $ttl,
-        int $staleOffset,
-    ): mixed {
+        int $staleOffset
+    ) {
         $value = $generator();
-        $entry = new CacheEntry(
-            expiresAt:   time() + $ttl,
-            staleOffset: $staleOffset,
-        );
+        $entry = new CacheEntry(time() + $ttl, $staleOffset);
 
         // Store the value for the full stale window so it remains retrievable
         // while stale. The meta transient tracks the true expiry boundary.
@@ -118,8 +121,8 @@ class TransientStaleCache
         CacheEntry $entry,
         callable $generator,
         int $ttl,
-        int $staleOffset,
-    ): mixed {
+        int $staleOffset
+    ) {
         $value = get_transient($prefixedKey);
 
         CronHandler::schedule($prefixedKey, $generator, $ttl, $staleOffset);

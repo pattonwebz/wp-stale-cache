@@ -7,12 +7,26 @@ namespace Pattonwebz\WpStaleCache;
 /**
  * Immutable value object representing cache entry metadata.
  */
-readonly class CacheEntry
+class CacheEntry
 {
-    public function __construct(
-        public int $expiresAt,
-        public int $staleOffset,
-    ) {}
+    private int $expiresAt;
+    private int $staleOffset;
+
+    public function __construct(int $expiresAt, int $staleOffset)
+    {
+        $this->expiresAt   = $expiresAt;
+        $this->staleOffset = $staleOffset;
+    }
+
+    public function getExpiresAt(): int
+    {
+        return $this->expiresAt;
+    }
+
+    public function getStaleOffset(): int
+    {
+        return $this->staleOffset;
+    }
 
     /**
      * Determine cache state at a given timestamp.
@@ -64,8 +78,8 @@ readonly class CacheEntry
     public static function fromArray(array $data): self
     {
         return new self(
-            expiresAt:   (int) $data['expires_at'],
-            staleOffset: (int) $data['stale_offset'],
+            (int) $data['expires_at'],
+            (int) $data['stale_offset']
         );
     }
 }

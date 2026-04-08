@@ -30,7 +30,7 @@ If you are comfortable with eviction risk — for example, you want object cache
 
 ## Requirements
 
-- PHP **8.1+**
+- PHP **7.4+**
 - WordPress **6.0+**
 - No additional PHP extensions beyond `ext-json` (already required)
 

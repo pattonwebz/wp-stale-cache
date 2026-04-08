@@ -35,7 +35,7 @@ class CronHandler
         string $prefixedKey,
         callable $generator,
         int $ttl,
-        int $staleOffset,
+        int $staleOffset
     ): void {
         if (!is_array($generator)) {
             error_log(sprintf(
@@ -65,7 +65,7 @@ class CronHandler
         string $prefixedKey,
         string $serializedGenerator,
         int $ttl,
-        int $staleOffset,
+        int $staleOffset
     ): void {
         try {
             /** @var callable $generator */
@@ -81,10 +81,7 @@ class CronHandler
 
             $value = $generator();
             $metaKey = $prefixedKey . '_meta';
-            $entry = new CacheEntry(
-                expiresAt:   time() + $ttl,
-                staleOffset: $staleOffset,
-            );
+            $entry = new CacheEntry(time() + $ttl, $staleOffset);
 
             update_option($prefixedKey, $value, false);
             update_option($metaKey, $entry->toArray(), false);

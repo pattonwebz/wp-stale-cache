@@ -20,14 +20,14 @@ namespace {
     $GLOBALS['_wpsc_cron_call_count'] = 0;  // how many times wp_schedule_single_event was called
     $GLOBALS['_wpsc_mock_time']       = null;
 
-    function get_option(string $option, mixed $default = false): mixed
+    function get_option(string $option, $default = false)
     {
         return array_key_exists($option, $GLOBALS['_wpsc_options'])
             ? $GLOBALS['_wpsc_options'][$option]
             : $default;
     }
 
-    function update_option(string $option, mixed $value, bool|string $autoload = null): bool
+    function update_option(string $option, $value, $autoload = null): bool
     {
         $GLOBALS['_wpsc_options'][$option] = $value;
         return true;
@@ -42,7 +42,8 @@ namespace {
         return false;
     }
 
-    function wp_next_scheduled(string $hook, array $args = []): int|false
+    /** @return int|false */
+    function wp_next_scheduled(string $hook, array $args = [])
     {
         $cronKey = serialize([$hook, $args]);
         return $GLOBALS['_wpsc_cron'][$cronKey] ?? false;
@@ -52,7 +53,7 @@ namespace {
         int $timestamp,
         string $hook,
         array $args = [],
-        bool $wp_error = false,
+        bool $wp_error = false
     ): bool {
         $cronKey = serialize([$hook, $args]);
         $GLOBALS['_wpsc_cron'][$cronKey] = $timestamp;
@@ -62,10 +63,10 @@ namespace {
 
     function add_action(
         string $hook,
-        callable|array|string $callback,
+        callable $callback,
         int $priority = 10,
-        int $accepted_args = 1,
-    ): true {
+        int $accepted_args = 1
+    ): bool {
         return true;
     }
 
@@ -73,7 +74,7 @@ namespace {
         string $message,
         int $message_type = 0,
         ?string $destination = null,
-        ?string $extra_headers = null,
+        ?string $extra_headers = null
     ): bool {
         return true;
     }

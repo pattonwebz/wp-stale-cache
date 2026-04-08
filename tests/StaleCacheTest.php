@@ -15,21 +15,27 @@ use RuntimeException;
 final class DummyGenerator
 {
     public static int   $callCount   = 0;
-    public static mixed $returnValue = 'generated-value';
+    /** @var mixed */
+    public static $returnValue = 'generated-value';
 
-    public static function generate(): mixed
+    /** @return mixed */
+    public static function generate()
     {
         self::$callCount++;
         return self::$returnValue;
     }
 
-    public static function reset(mixed $returnValue = 'generated-value'): void
+    /**
+     * @param mixed $returnValue
+     */
+    public static function reset($returnValue = 'generated-value'): void
     {
         self::$callCount   = 0;
         self::$returnValue = $returnValue;
     }
 
-    public static function throwing(): mixed
+    /** @return mixed */
+    public static function throwing()
     {
         self::$callCount++;
         throw new RuntimeException('generator exploded');
@@ -80,10 +86,10 @@ class StaleCacheTest extends TestCase
      */
     private function seedCache(
         string $key,
-        mixed  $value,
+        $value,
         int    $expiresAt,
         int    $staleOffset = 300,
-        string $prefix = '_wpsc_',
+        string $prefix = '_wpsc_'
     ): void {
         $prefixedKey = $prefix . $key;
         $GLOBALS['_wpsc_options'][$prefixedKey]              = $value;
@@ -103,7 +109,7 @@ class StaleCacheTest extends TestCase
         string $prefixedKey,
         array  $generator,
         int    $ttl,
-        int    $staleOffset,
+        int    $staleOffset
     ): string {
         $args = [$prefixedKey, serialize($generator), $ttl, $staleOffset];
         return serialize([CronHandler::HOOK, $args]);
@@ -292,7 +298,7 @@ class StaleCacheTest extends TestCase
     {
         try {
             $this->cache->get('throw_key', [DummyGenerator::class, 'throwing'], 3600, 300);
-        } catch (RuntimeException) {
+        } catch (RuntimeException $e) {
             // expected
         }
 

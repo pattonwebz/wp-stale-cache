@@ -205,15 +205,15 @@ class CacheEntryTest extends TestCase
         $entry     = new CacheEntry(1_704_067_200, 600);
         $restored  = CacheEntry::fromArray($entry->toArray());
 
-        self::assertSame($entry->expiresAt,   $restored->expiresAt);
-        self::assertSame($entry->staleOffset, $restored->staleOffset);
+        self::assertSame($entry->getExpiresAt(),   $restored->getExpiresAt());
+        self::assertSame($entry->getStaleOffset(), $restored->getStaleOffset());
     }
 
     public function testFromArrayCastsStringValuesToInt(): void
     {
         $restored = CacheEntry::fromArray(['expires_at' => '1704067200', 'stale_offset' => '300']);
 
-        self::assertSame(1_704_067_200, $restored->expiresAt);
-        self::assertSame(300, $restored->staleOffset);
+        self::assertSame(1_704_067_200, $restored->getExpiresAt());
+        self::assertSame(300, $restored->getStaleOffset());
     }
 }

@@ -9,9 +9,13 @@ namespace Pattonwebz\WpStaleCache;
  */
 class StaleCache
 {
-    public function __construct(
-        private readonly string $prefix = '_wpsc_',
-    ) {}
+    /** @var string */
+    private string $prefix;
+
+    public function __construct(string $prefix = '_wpsc_')
+    {
+        $this->prefix = $prefix;
+    }
 
     // -------------------------------------------------------------------------
     // Public API
@@ -35,8 +39,8 @@ class StaleCache
         string $key,
         callable $generator,
         int $ttl = 3600,
-        int $staleOffset = 300,
-    ): mixed {
+        int $staleOffset = 300
+    ) {
         $prefixedKey = $this->prefix . $key;
         $metaKey = $prefixedKey . '_meta';
 
@@ -49,11 +53,13 @@ class StaleCache
         $entry = CacheEntry::fromArray($rawMeta);
         $state = $entry->getState(time());
 
-        return match ($state) {
-            'fresh'   => get_option($prefixedKey),
-            'stale'   => $this->serveStale($prefixedKey, $metaKey, $entry, $generator, $ttl, $staleOffset),
-            'expired' => $this->regenerate($prefixedKey, $metaKey, $generator, $ttl, $staleOffset),
-        };
+        if ($state === 'fresh') {
+            return get_option($prefixedKey);
+        }
+        if ($state === 'stale') {
+            return $this->serveStale($prefixedKey, $metaKey, $entry, $generator, $ttl, $staleOffset);
+        }
+        return $this->regenerate($prefixedKey, $metaKey, $generator, $ttl, $staleOffset);
     }
 
     /**
@@ -119,13 +125,10 @@ class StaleCache
         string $metaKey,
         callable $generator,
         int $ttl,
-        int $staleOffset,
-    ): mixed {
+        int $staleOffset
+    ) {
         $value = $generator();
-        $entry = new CacheEntry(
-            expiresAt:   time() + $ttl,
-            staleOffset: $staleOffset,
-        );
+        $entry = new CacheEntry(time() + $ttl, $staleOffset);
 
         $stored = update_option($prefixedKey, $value, false);
         if ($stored === false) {
@@ -149,8 +152,8 @@ class StaleCache
         CacheEntry $entry,
         callable $generator,
         int $ttl,
-        int $staleOffset,
-    ): mixed {
+        int $staleOffset
+    ) {
         $value = get_option($prefixedKey);
 
         CronHandler::schedule($prefixedKey, $generator, $ttl, $staleOffset);
