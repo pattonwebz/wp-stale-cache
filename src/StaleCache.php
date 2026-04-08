@@ -14,8 +14,7 @@ namespace Pattonwebz\WpStaleCache;
  *
  * @package pattonwebz/wp-stale-cache
  */
-class StaleCache
-{
+class StaleCache {
 	/**
 	 * Option name prefix applied to all keys.
 	 *
@@ -28,8 +27,7 @@ class StaleCache
 	 *
 	 * @param string $prefix Option name prefix (default: '_wpsc_').
 	 */
-	public function __construct( string $prefix = '_wpsc_' )
-	{
+	public function __construct( string $prefix = '_wpsc_' ) {
 		$this->prefix = $prefix;
 	}
 
@@ -88,8 +86,7 @@ class StaleCache
 	 * @param string $key Cache key.
 	 * @return void
 	 */
-	public function forget( string $key ): void
-	{
+	public function forget( string $key ): void {
 		$prefixed_key = $this->prefix . $key;
 		delete_option( $prefixed_key );
 		delete_option( $prefixed_key . '_meta' );
@@ -107,8 +104,7 @@ class StaleCache
 	 * @param string $prefix Option name prefix to match (defaults to instance prefix).
 	 * @return void
 	 */
-	public function flush( string $prefix = '' ): void
-	{
+	public function flush( string $prefix = '' ): void {
 		global $wpdb;
 
 		$like_prefix = $wpdb->esc_like( '' !== $prefix ? $prefix : $this->prefix ) . '%';
@@ -133,8 +129,7 @@ class StaleCache
 	 * @param string $key Cache key.
 	 * @return string One of: 'fresh', 'stale', 'expired', 'missing'.
 	 */
-	public function get_state( string $key ): string
-	{
+	public function get_state( string $key ): string {
 		$meta_key = $this->prefix . $key . '_meta';
 		$raw_meta = get_option( $meta_key, null );
 

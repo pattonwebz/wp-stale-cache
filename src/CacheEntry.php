@@ -14,8 +14,7 @@ namespace Pattonwebz\WpStaleCache;
  *
  * @package pattonwebz/wp-stale-cache
  */
-class CacheEntry
-{
+class CacheEntry {
 	/**
 	 * Unix timestamp when the entry transitions from fresh to stale.
 	 *
@@ -36,8 +35,7 @@ class CacheEntry
 	 * @param int $expires_at   Unix timestamp of expiry.
 	 * @param int $stale_offset Stale window in seconds.
 	 */
-	public function __construct( int $expires_at, int $stale_offset )
-	{
+	public function __construct( int $expires_at, int $stale_offset ) {
 		$this->expires_at   = $expires_at;
 		$this->stale_offset = $stale_offset;
 	}
@@ -47,8 +45,7 @@ class CacheEntry
 	 *
 	 * @return int
 	 */
-	public function get_expires_at(): int
-	{
+	public function get_expires_at(): int {
 		return $this->expires_at;
 	}
 
@@ -57,8 +54,7 @@ class CacheEntry
 	 *
 	 * @return int
 	 */
-	public function get_stale_offset(): int
-	{
+	public function get_stale_offset(): int {
 		return $this->stale_offset;
 	}
 
@@ -70,8 +66,7 @@ class CacheEntry
 	 * @param int $now Current Unix timestamp.
 	 * @return string One of: 'fresh', 'stale', 'expired'.
 	 */
-	public function get_state( int $now ): string
-	{
+	public function get_state( int $now ): string {
 		if ( $now < $this->expires_at ) {
 			return 'fresh';
 		}
@@ -88,8 +83,7 @@ class CacheEntry
 	 *
 	 * @return bool
 	 */
-	public function is_fresh(): bool
-	{
+	public function is_fresh(): bool {
 		return 'fresh' === $this->get_state( time() );
 	}
 
@@ -98,8 +92,7 @@ class CacheEntry
 	 *
 	 * @return bool
 	 */
-	public function is_stale(): bool
-	{
+	public function is_stale(): bool {
 		return 'stale' === $this->get_state( time() );
 	}
 
@@ -108,8 +101,7 @@ class CacheEntry
 	 *
 	 * @return bool
 	 */
-	public function is_expired(): bool
-	{
+	public function is_expired(): bool {
 		return 'expired' === $this->get_state( time() );
 	}
 
@@ -118,8 +110,7 @@ class CacheEntry
 	 *
 	 * @return array{expires_at: int, stale_offset: int}
 	 */
-	public function to_array(): array
-	{
+	public function to_array(): array {
 		return [
 			'expires_at'   => $this->expires_at,
 			'stale_offset' => $this->stale_offset,
@@ -132,8 +123,7 @@ class CacheEntry
 	 * @param array{expires_at: int, stale_offset: int} $data Stored metadata array.
 	 * @return self
 	 */
-	public static function from_array( array $data ): self
-	{
+	public static function from_array( array $data ): self {
 		return new self(
 			(int) $data['expires_at'],
 			(int) $data['stale_offset']

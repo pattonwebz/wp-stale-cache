@@ -14,8 +14,7 @@ namespace Pattonwebz\WpStaleCache;
  *
  * @package pattonwebz/wp-stale-cache
  */
-class CronHandler
-{
+class CronHandler {
 	/**
 	 * WP-Cron hook name for background refresh events.
 	 */
@@ -30,8 +29,7 @@ class CronHandler
 	 *
 	 * @return void
 	 */
-	public static function register(): void
-	{
+	public static function register(): void {
 		add_action( self::HOOK, [ self::class, 'handle_refresh' ], 10, 4 );
 	}
 

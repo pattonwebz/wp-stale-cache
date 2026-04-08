@@ -20,8 +20,7 @@ namespace Pattonwebz\WpStaleCache;
  *
  * @package pattonwebz/wp-stale-cache
  */
-class TransientStaleCache
-{
+class TransientStaleCache {
 	/**
 	 * Transient name prefix applied to all keys.
 	 *
@@ -34,8 +33,7 @@ class TransientStaleCache
 	 *
 	 * @param string $prefix Transient name prefix (default: '_wpsc_').
 	 */
-	public function __construct( string $prefix = '_wpsc_' )
-	{
+	public function __construct( string $prefix = '_wpsc_' ) {
 		$this->prefix = $prefix;
 	}
 
@@ -94,8 +92,7 @@ class TransientStaleCache
 	 * @param string $key Cache key.
 	 * @return void
 	 */
-	public function forget( string $key ): void
-	{
+	public function forget( string $key ): void {
 		$prefixed_key = $this->prefix . $key;
 		delete_transient( $prefixed_key );
 		delete_transient( $prefixed_key . '_meta' );
