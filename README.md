@@ -71,7 +71,7 @@ $posts = $cache->get(
 );
 ```
 
-The `generator` must be an **array callable** (`[ClassName::class, 'method']` or `[$object, 'method']`) when background refresh is needed, because PHP closures cannot be serialised for WP-Cron. Closures work for the initial fill and synchronous regeneration, but will fall back to logging a warning instead of scheduling a background refresh when the entry is stale.
+The `generator` parameter must be serializable for the stale-cache path (see [Generator Callable Constraints](#generator-callable-constraints-serialization-for-wp-cron) below). Use named functions or static array callables, not closures.
 
 ### 3. Invalidate on change
 
@@ -98,6 +98,19 @@ $cache->flush('_wpsc_products_');
 $state = $cache->getState('recent_posts');
 // Returns: 'fresh' | 'stale' | 'expired' | 'missing'
 ```
+
+## Generator Callable Constraints (Serialization for WP-Cron)
+
+When cache is **fresh** or **expired**, the generator runs immediately on the current request — any callable works fine (closures, named functions, static methods, instance methods).
+
+When cache is **stale**, the generator is passed to `wp_schedule_single_event()` for background refresh. WordPress serializes this callable into `wp_options` for deferred execution on a future HTTP request. Only serializable callables survive this round-trip:
+
+- ✅ **Safe:** `'my_function'` (named function string)
+- ✅ **Safe:** `[ClassName::class, 'staticMethod']` (static array callable)
+- ✅ **Safe:** `[$object, 'method']` (object method array, *if the object implements `__sleep`*)
+- ❌ **Unsafe:** Closures — they cannot be serialized and will log a warning instead of scheduling a background refresh
+
+**Recommended approach:** Always use static array callables (`[ClassName::class, 'method']`) for generators to guarantee correct behaviour on all cache paths. If you only ever use this package for immediate (non-stale) cache, closures would work — but that is risky because you cannot always predict which path (fresh/stale/expired) will fire on a given request.
 
 ## Custom prefix
 
@@ -188,7 +201,7 @@ Any PSR-3 compatible logger works — not just `pattonwebz/psr3-logger`. If no l
 
 ## Examples
 
-The examples below use PHP 7.4-compatible positional arguments. The generator must be a **static array callable** (`[ ClassName::class, 'method_name' ]`) whenever background refresh via WP-Cron is needed — PHP closures cannot be serialised for scheduling.
+The examples below use PHP 7.4-compatible positional arguments. **Important:** The generator callable must be serializable (named function, static method, or object method with `__sleep`) because stale-cache entries are refreshed via WP-Cron, which serializes the callable for deferred execution. See [Generator Callable Constraints](#generator-callable-constraints-serialization-for-wp-cron) above for details.
 
 ---
 

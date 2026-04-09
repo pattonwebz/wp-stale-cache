@@ -70,6 +70,21 @@ namespace {
         return true;
     }
 
+}
+
+// ---------------------------------------------------------------------------
+// Package namespace — time() and error_log() overrides.
+// PHP resolves unqualified function calls within a namespace by first checking
+// the current namespace, then falling back to global. Stubs here intercept
+// calls made from StaleCache and CronHandler without touching the real
+// global error_log() built-in (which cannot be re-declared).
+// ---------------------------------------------------------------------------
+namespace Pattonwebz\WpStaleCache {
+    function time(): int
+    {
+        return $GLOBALS['_wpsc_mock_time'] ?? \time();
+    }
+
     function error_log(
         string $message,
         int $message_type = 0,
@@ -77,15 +92,5 @@ namespace {
         ?string $extra_headers = null
     ): bool {
         return true;
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Package namespace — time() override (PHP resolves unqualified calls here first)
-// ---------------------------------------------------------------------------
-namespace Pattonwebz\WpStaleCache {
-    function time(): int
-    {
-        return $GLOBALS['_wpsc_mock_time'] ?? \time();
     }
 }

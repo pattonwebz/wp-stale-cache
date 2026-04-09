@@ -10,6 +10,17 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 /**
+ * Named function used as a string callable in tests.
+ * Must live outside the test class so it can be referenced by its FQN string.
+ *
+ * @return string
+ */
+function wpsc_test_string_generator(): string
+{
+    return DummyGenerator::generate();
+}
+
+/**
  * A static generator whose call-count and return value are controllable from tests.
  */
 final class DummyGenerator
@@ -103,11 +114,11 @@ class StaleCacheTest extends TestCase
      * Build the cron-store key matching what CronHandler::schedule() produces
      * so tests can pre-seed or assert on it.
      *
-     * @param array $generator Array callable, e.g. [DummyGenerator::class, 'generate']
+     * @param array|string $generator Array callable or function name string.
      */
     private function cronKey(
         string $prefixedKey,
-        array  $generator,
+        $generator,
         int    $ttl,
         int    $staleOffset
     ): string {
@@ -394,6 +405,49 @@ class StaleCacheTest extends TestCase
 
         self::assertSame('stale-content', $result);
         self::assertFalse($called, 'Closure generator must not be called on stale hit');
+        self::assertSame(0, $GLOBALS['_wpsc_cron_call_count']);
+    }
+
+    // -------------------------------------------------------------------------
+    // String callable (named function) — all three cache paths
+    // -------------------------------------------------------------------------
+
+    /** @var string */
+    private const STRING_GEN = 'Pattonwebz\WpStaleCache\Tests\wpsc_test_string_generator';
+
+    public function testStringCallableFreshPathReturnsCachedValueWithoutCallingGenerator(): void
+    {
+        $this->seedCache('str_fresh', 'cached-string', self::NOW + 500);
+
+        $result = $this->cache->get('str_fresh', self::STRING_GEN);
+
+        self::assertSame('cached-string', $result);
+        self::assertSame(0, DummyGenerator::$callCount);
+    }
+
+    public function testStringCallableStalePathSchedulesCronAndReturnsCachedValue(): void
+    {
+        $this->seedCache('str_stale', 'stale-string', self::NOW - 100, 300);
+
+        $result = $this->cache->get('str_stale', self::STRING_GEN, 3600, 300);
+
+        self::assertSame('stale-string', $result);
+        self::assertSame(0, DummyGenerator::$callCount);
+        self::assertSame(1, $GLOBALS['_wpsc_cron_call_count']);
+
+        $expectedKey = $this->cronKey('_wpsc_str_stale', self::STRING_GEN, 3600, 300);
+        self::assertArrayHasKey($expectedKey, $GLOBALS['_wpsc_cron']);
+    }
+
+    public function testStringCallableExpiredPathCallsGeneratorSynchronously(): void
+    {
+        DummyGenerator::reset('fresh-from-string-gen');
+        $this->seedCache('str_exp', 'old-string', self::NOW - 400, 300);
+
+        $result = $this->cache->get('str_exp', self::STRING_GEN, 3600, 300);
+
+        self::assertSame('fresh-from-string-gen', $result);
+        self::assertSame(1, DummyGenerator::$callCount);
         self::assertSame(0, $GLOBALS['_wpsc_cron_call_count']);
     }
 }

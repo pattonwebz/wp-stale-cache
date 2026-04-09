@@ -73,10 +73,10 @@ class CronHandler {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string   $prefixed_key Full option key (with prefix).
-	 * @param callable $generator    Array callable — closures are not serialisable.
-	 * @param int      $ttl          Fresh period in seconds.
-	 * @param int      $stale_offset Stale window in seconds.
+	 * @param string          $prefixed_key Full option key (with prefix).
+	 * @param array|string    $generator    Array callable or named function string — closures are not serialisable.
+	 * @param int             $ttl          Fresh period in seconds.
+	 * @param int             $stale_offset Stale window in seconds.
 	 * @return void
 	 */
 	public static function schedule(
@@ -85,10 +85,10 @@ class CronHandler {
 		int $ttl,
 		int $stale_offset
 	): void {
-		if ( ! is_array( $generator ) ) {
+		if ( ! is_array( $generator ) && ! is_string( $generator ) ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( sprintf(
-				'[wp-stale-cache] Cannot schedule background refresh for "%s": generator must be an array callable (closures are not serialisable).',
+				'[wp-stale-cache] Cannot schedule background refresh for "%s": generator must be an array callable (e.g. [\'MyClass\', \'method\']) or a function name string — closures are not serialisable.',
 				$prefixed_key,
 			) );
 			return;
@@ -110,7 +110,7 @@ class CronHandler {
 	 * @since 1.0.0
 	 *
 	 * @param string $prefixed_key         Full option key (with prefix).
-	 * @param string $serialized_generator Serialised array callable.
+	 * @param string $serialized_generator Serialised array callable or function name string.
 	 * @param int    $ttl                  Fresh period in seconds.
 	 * @param int    $stale_offset         Stale window in seconds.
 	 * @return void
