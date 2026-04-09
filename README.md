@@ -64,10 +64,10 @@ use Pattonwebz\WpStaleCache\StaleCache;
 $cache = new StaleCache(); // default prefix: _wpsc_
 
 $posts = $cache->get(
-    key: 'recent_posts',
-    generator: [MyDataService::class, 'fetchRecentPosts'],
-    ttl: 3600,       // Fresh for 1 hour
-    staleOffset: 300 // Serve stale for 5 extra minutes while refreshing in background
+    'recent_posts',
+    [MyDataService::class, 'fetchRecentPosts'],
+    3600,       // Fresh for 1 hour
+    300         // Serve stale for 5 extra minutes while refreshing in background
 );
 ```
 
@@ -104,7 +104,7 @@ $state = $cache->getState('recent_posts');
 Pass a prefix string to the constructor to namespace your cache entries:
 
 ```php
-$cache = new StaleCache(prefix: '_mysite_cache_');
+$cache = new StaleCache( '_mysite_cache_' );
 ```
 
 ## Storage
@@ -142,13 +142,13 @@ For those use cases, consider using WordPress transients directly or `TransientS
 ```php
 use Pattonwebz\WpStaleCache\TransientStaleCache;
 
-$cache = new TransientStaleCache(prefix: '_wpsc_'); // same constructor, same API
+$cache = new TransientStaleCache( '_wpsc_' ); // same constructor, same API
 
 $posts = $cache->get(
-    key: 'recent_posts',
-    generator: [MyDataService::class, 'fetchRecentPosts'],
-    ttl: 3600,
-    staleOffset: 300,
+    'recent_posts',
+    [MyDataService::class, 'fetchRecentPosts'],
+    3600,
+    300,
 );
 
 $cache->forget('recent_posts');
