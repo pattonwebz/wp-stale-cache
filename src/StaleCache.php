@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Pattonwebz\WpStaleCache;
 
+use Psr\Log\LoggerInterface;
+
 /**
  * Stale-while-revalidate cache manager backed by the WordPress Options API.
  *
@@ -23,12 +25,46 @@ class StaleCache {
 	private string $prefix;
 
 	/**
+	 * Optional PSR-3 logger instance.
+	 *
+	 * @var LoggerInterface|null
+	 */
+	protected ?LoggerInterface $logger = null;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param string $prefix Option name prefix (default: '_wpsc_').
+	 * @param string               $prefix Option name prefix (default: '_wpsc_').
+	 * @param LoggerInterface|null $logger Optional PSR-3 logger.
 	 */
-	public function __construct( string $prefix = '_wpsc_' ) {
+	public function __construct( string $prefix = '_wpsc_', ?LoggerInterface $logger = null ) {
 		$this->prefix = $prefix;
+		$this->logger = $logger;
+	}
+
+	/**
+	 * Inject a PSR-3 logger after construction.
+	 *
+	 * @param LoggerInterface $logger PSR-3 compatible logger.
+	 * @return static
+	 */
+	public function set_logger( LoggerInterface $logger ) {
+		$this->logger = $logger;
+		return $this;
+	}
+
+	/**
+	 * Log a message if a logger has been injected.
+	 *
+	 * @param string $level   PSR-3 log level.
+	 * @param string $message Log message.
+	 * @param array  $context Context array.
+	 * @return void
+	 */
+	private function log( string $level, string $message, array $context = [] ): void {
+		if ( null !== $this->logger ) {
+			$this->logger->log( $level, $message, $context );
+		}
 	}
 
 	// -------------------------------------------------------------------------
@@ -63,6 +99,7 @@ class StaleCache {
 		$raw_meta = get_option( $meta_key, null );
 
 		if ( null === $raw_meta || ! is_array( $raw_meta ) ) {
+			$this->log( 'warning', 'WPSC: Cache missing for key: {key}, regenerating synchronously', [ 'key' => $key ] );
 			return $this->regenerate( $prefixed_key, $meta_key, $generator, $ttl, $stale_offset );
 		}
 
@@ -70,11 +107,14 @@ class StaleCache {
 		$state = $entry->get_state( time() );
 
 		if ( 'fresh' === $state ) {
+			$this->log( 'debug', 'WPSC: Cache fresh for key: {key}', [ 'key' => $key ] );
 			return get_option( $prefixed_key );
 		}
 		if ( 'stale' === $state ) {
+			$this->log( 'info', 'WPSC: Cache stale for key: {key}, scheduling background refresh', [ 'key' => $key ] );
 			return $this->serve_stale( $prefixed_key, $meta_key, $entry, $generator, $ttl, $stale_offset );
 		}
+		$this->log( 'warning', 'WPSC: Cache expired for key: {key}, regenerating synchronously', [ 'key' => $key ] );
 		return $this->regenerate( $prefixed_key, $meta_key, $generator, $ttl, $stale_offset );
 	}
 

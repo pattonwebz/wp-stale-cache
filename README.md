@@ -156,6 +156,36 @@ $cache->forget('recent_posts');
 
 > **Note:** `TransientStaleCache` does not implement a `flush()` method. WordPress provides no native way to query transients by prefix without a direct database query, and that is intentionally deferred to a future version.
 
+## Optional Logging
+
+`wp-stale-cache` has zero required dependencies beyond PSR-3 interfaces. For logging cache events and background refresh lifecycle, install the optional PSR-3 logger:
+
+```bash
+composer require pattonwebz/psr3-logger
+```
+
+Then inject it:
+
+```php
+use PattonWebz\Psr3Logger\Logger;
+use Pattonwebz\WpStaleCache\StaleCache;
+
+$logger = new Logger();
+$cache  = new StaleCache( '_myplugin_' );
+$cache->set_logger( $logger );
+```
+
+For background refresh logging, wire the logger into `CronHandler` too:
+
+```php
+use PattonWebz\Psr3Logger\Logger;
+use Pattonwebz\WpStaleCache\CronHandler;
+
+CronHandler::set_logger( new Logger() );
+```
+
+Any PSR-3 compatible logger works — not just `pattonwebz/psr3-logger`. If no logger is injected, all logging is silently suppressed.
+
 ## Examples
 
 The examples below use PHP 7.4-compatible positional arguments. The generator must be a **static array callable** (`[ ClassName::class, 'method_name' ]`) whenever background refresh via WP-Cron is needed — PHP closures cannot be serialised for scheduling.

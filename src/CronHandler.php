@@ -9,12 +9,45 @@ declare(strict_types=1);
 
 namespace Pattonwebz\WpStaleCache;
 
+use Psr\Log\LoggerInterface;
+
 /**
  * Registers and handles WP-Cron background cache refresh events.
  *
  * @package pattonwebz/wp-stale-cache
  */
 class CronHandler {
+
+	/**
+	 * Optional PSR-3 logger instance.
+	 *
+	 * @var LoggerInterface|null
+	 */
+	private static ?LoggerInterface $logger = null;
+
+	/**
+	 * Inject a PSR-3 logger.
+	 *
+	 * @param LoggerInterface $logger PSR-3 compatible logger.
+	 * @return void
+	 */
+	public static function set_logger( LoggerInterface $logger ): void {
+		self::$logger = $logger;
+	}
+
+	/**
+	 * Log a message if a logger has been injected.
+	 *
+	 * @param string $level   PSR-3 log level.
+	 * @param string $message Log message.
+	 * @param array  $context Context array.
+	 * @return void
+	 */
+	private static function log_message( string $level, string $message, array $context = [] ): void {
+		if ( null !== self::$logger ) {
+			self::$logger->log( $level, $message, $context );
+		}
+	}
 	/**
 	 * WP-Cron hook name for background refresh events.
 	 */
@@ -66,6 +99,8 @@ class CronHandler {
 
 		if ( ! wp_next_scheduled( self::HOOK, $args ) ) {
 			wp_schedule_single_event( time(), self::HOOK, $args );
+		} else {
+			self::log_message( 'debug', 'WPSC: Refresh already scheduled for key: {key}', [ 'key' => $prefixed_key ] );
 		}
 	}
 
@@ -86,6 +121,8 @@ class CronHandler {
 		int $ttl,
 		int $stale_offset
 	): void {
+		self::log_message( 'info', 'WPSC: Starting background refresh for key: {key}', [ 'key' => $prefixed_key ] );
+
 		try {
 			/** @var callable $generator */
 			$generator = unserialize( $serialized_generator ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize
@@ -96,15 +133,26 @@ class CronHandler {
 					'[wp-stale-cache] Background refresh for "%s" failed: generator is not callable after unserialise.',
 					$prefixed_key,
 				) );
+				self::log_message( 'error', 'WPSC: Background refresh failed for key: {key}', [ 'key' => $prefixed_key ] );
 				return;
 			}
 
-			$value    = $generator();
+			$value = $generator();
+
+			if ( null === $value ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( sprintf( '[wp-stale-cache] Background refresh for "%s" returned null.', $prefixed_key ) );
+				self::log_message( 'error', 'WPSC: Background refresh failed for key: {key}', [ 'key' => $prefixed_key ] );
+				return;
+			}
+
 			$meta_key = $prefixed_key . '_meta';
 			$entry    = new CacheEntry( time() + $ttl, $stale_offset );
 
 			update_option( $prefixed_key, $value, false );
 			update_option( $meta_key, $entry->to_array(), false );
+
+			self::log_message( 'info', 'WPSC: Background refresh complete for key: {key}', [ 'key' => $prefixed_key ] );
 		} catch ( \Throwable $e ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( sprintf(
@@ -112,6 +160,7 @@ class CronHandler {
 				$prefixed_key,
 				$e->getMessage(),
 			) );
+			self::log_message( 'error', 'WPSC: Background refresh failed for key: {key}', [ 'key' => $prefixed_key ] );
 		}
 	}
 }
