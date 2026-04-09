@@ -118,6 +118,18 @@ Each cache key creates **two rows** in `wp_options`:
 
 Both options are stored with `autoload = false` to avoid loading them on every page.
 
+## Tradeoffs
+
+The two-option design provides persistence and stale-while-revalidate guarantees, but comes with a cost: **every `get()`, `set()`, and `remove()` operation requires two database lookups or writes** — one for the value, one for the metadata.
+
+This makes `wp-stale-cache` **best suited for longer-lived cached items** — hours or days — where the overhead of two DB operations is negligible compared to the benefit of persistent stale-while-revalidate behaviour and surviving object cache evictions.
+
+**It is not ideal for:**
+- **Very short TTLs** (seconds or minutes) — the two DB operations per hit dominate the cost.
+- **High-frequency cache operations** — where transients or the object cache layer would be more performant.
+
+For those use cases, consider using WordPress transients directly or `TransientStaleCache` (see [Using the Transient Backend](#using-the-transient-backend) below).
+
 ## Not suitable for
 
 - Real-time data (stock prices, live scores) — stale data may be served for up to `stale_offset` seconds.
