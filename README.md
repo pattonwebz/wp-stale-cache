@@ -156,6 +156,228 @@ $cache->forget('recent_posts');
 
 > **Note:** `TransientStaleCache` does not implement a `flush()` method. WordPress provides no native way to query transients by prefix without a direct database query, and that is intentionally deferred to a future version.
 
+## Examples
+
+The examples below use PHP 7.4-compatible positional arguments. The generator must be a **static array callable** (`[ ClassName::class, 'method_name' ]`) whenever background refresh via WP-Cron is needed — PHP closures cannot be serialised for scheduling.
+
+---
+
+### 1. Basic usage
+
+Register the cron handler once during plugin or theme boot, then call `get()` with a generator callable, a TTL (fresh window), and a stale offset (background-refresh window).
+
+```php
+use Pattonwebz\WpStaleCache\CronHandler;
+use Pattonwebz\WpStaleCache\StaleCache;
+
+// Register once — e.g. in the plugin bootstrap or functions.php.
+add_action( 'init', function () {
+    CronHandler::register();
+} );
+
+$cache = new StaleCache(); // default prefix: _wpsc_
+
+// Fresh for 1 hour; serve stale for 5 minutes while WP-Cron refreshes.
+$recent_posts = $cache->get(
+    'recent_posts',
+    [ MyDataService::class, 'get_recent_posts' ], // array callable — serialisable for cron
+    3600, // ttl: fresh window in seconds
+    300   // stale_offset: extra seconds to serve stale before forcing a sync regeneration
+);
+```
+
+---
+
+### 2. Custom prefix — namespace per plugin or theme
+
+Pass a unique prefix string so your keys never collide with another plugin's or the default `_wpsc_` namespace.
+
+```php
+use Pattonwebz\WpStaleCache\StaleCache;
+
+// All keys are stored as _myplugin_{key} and _myplugin_{key}_meta in wp_options.
+$cache = new StaleCache( '_myplugin_' );
+
+$menu_items = $cache->get(
+    'primary_nav',
+    [ MyMenuHelper::class, 'build_primary_nav' ],
+    1800, // fresh for 30 minutes
+    120   // serve stale for 2 minutes
+);
+```
+
+You can create multiple instances with different prefixes in the same project to keep caches logically separated:
+
+```php
+$products_cache = new StaleCache( '_myshop_products_' );
+$settings_cache = new StaleCache( '_myshop_settings_' );
+```
+
+---
+
+### 3. Explicit cache busting — `forget()` and `flush()`
+
+Use `forget()` to invalidate a single key and `flush()` to wipe all keys under a prefix.
+
+```php
+use Pattonwebz\WpStaleCache\StaleCache;
+
+$cache = new StaleCache( '_myplugin_' );
+
+// Invalidate a single entry whenever the underlying data changes.
+// Both the value option and its _meta companion are deleted.
+add_action( 'save_post', function ( $post_id ) use ( $cache ) {
+    if ( wp_is_post_revision( $post_id ) ) {
+        return;
+    }
+    $cache->forget( 'recent_posts' );
+} );
+
+// Flush every option managed by this cache instance.
+// Useful during plugin deactivation or after a bulk import.
+add_action( 'my_plugin_data_import_complete', function () use ( $cache ) {
+    $cache->flush(); // flushes all _myplugin_* options
+} );
+
+// Flush a different prefix without a separate instance.
+// Handy when you need to clear one logical group from a shared context.
+add_action( 'switch_theme', function () {
+    $cache = new StaleCache( '_mytheme_' );
+    $cache->flush( '_mytheme_nav_' ); // clears only nav-related keys
+} );
+```
+
+You can also inspect whether a key is already stale before deciding to bust it:
+
+```php
+$state = $cache->get_state( 'recent_posts' ); // 'fresh' | 'stale' | 'expired' | 'missing'
+
+if ( 'fresh' !== $state ) {
+    $cache->forget( 'recent_posts' );
+}
+```
+
+---
+
+### 4. Transient backend — `TransientStaleCache` as a drop-in alternative
+
+`TransientStaleCache` exposes the same `get()`, `forget()`, and `get_state()` methods as `StaleCache`. Swap the class name to store data in transients instead of `wp_options`. The trade-off: entries may be silently evicted by the object cache under memory pressure.
+
+```php
+use Pattonwebz\WpStaleCache\TransientStaleCache;
+
+$cache = new TransientStaleCache( '_myplugin_' );
+
+// Identical call signature to StaleCache::get().
+$feed_items = $cache->get(
+    'rss_feed',
+    [ MyFeedReader::class, 'fetch_items' ],
+    900, // fresh for 15 minutes
+    180  // serve stale for 3 more minutes
+);
+
+// Invalidate a single key.
+$cache->forget( 'rss_feed' );
+
+// Note: TransientStaleCache does not implement flush().
+// WordPress provides no native API to query transients by prefix,
+// so bulk deletion is deferred to a future version.
+```
+
+Choose `TransientStaleCache` when:
+- Your data is cheap to regenerate on eviction.
+- You want the performance characteristics of Memcached or Redis.
+- You do **not** need the entry to survive a Redis flush or Memcached restart.
+
+---
+
+### 5. Real-world scenario — caching an external API response
+
+The following example caches a remote weather API call for 1 hour and serves stale data for 5 minutes while WP-Cron regenerates it silently in the background. The generator is a named static method so it can be serialised for cron scheduling.
+
+```php
+<?php
+// MyPlugin/WeatherService.php
+namespace MyPlugin;
+
+class WeatherService {
+    /**
+     * Fetch current weather data.
+     *
+     * Static method — required so the array callable [ WeatherService::class, 'fetch_current' ]
+     * can be serialised by WP-Cron for background scheduling.
+     *
+     * @return array<string, mixed>
+     */
+    public static function fetch_current() {
+        $response = wp_remote_get(
+            'https://api.example.com/weather?city=London',
+            [ 'timeout' => 10 ]
+        );
+
+        if ( is_wp_error( $response ) ) {
+            error_log( '[my-plugin] Weather API error: ' . $response->get_error_message() );
+            return [];
+        }
+
+        if ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
+            return [];
+        }
+
+        $body = wp_remote_retrieve_body( $response );
+        $data = json_decode( $body, true );
+
+        return is_array( $data ) ? $data : [];
+    }
+}
+```
+
+```php
+<?php
+// my-plugin.php (or a service class loaded during init)
+use Pattonwebz\WpStaleCache\CronHandler;
+use Pattonwebz\WpStaleCache\StaleCache;
+use MyPlugin\WeatherService;
+
+add_action( 'init', function () {
+    CronHandler::register();
+} );
+
+/**
+ * Return weather data for London, served from cache wherever possible.
+ *
+ * - Hit within the first hour   → value returned instantly from wp_options.
+ * - Hit in minutes 60–65        → stale value returned instantly;
+ *                                  WP-Cron schedules a background refresh.
+ * - Hit after 65 minutes        → synchronous regeneration on this request.
+ *
+ * @return array<string, mixed>
+ */
+function myplugin_get_weather() {
+    static $cache = null;
+    if ( null === $cache ) {
+        $cache = new StaleCache( '_myplugin_' );
+    }
+
+    $weather = $cache->get(
+        'weather_london',
+        [ WeatherService::class, 'fetch_current' ], // serialisable for WP-Cron
+        3600, // fresh for 1 hour
+        300   // serve stale for 5 minutes while cron refreshes
+    );
+
+    return is_array( $weather ) ? $weather : [];
+}
+
+// Invalidate if a user manually triggers a cache clear from the admin.
+add_action( 'admin_post_myplugin_clear_weather_cache', function () {
+    $cache = new StaleCache( '_myplugin_' );
+    $cache->forget( 'weather_london' );
+    wp_safe_redirect( admin_url( 'options-general.php?page=myplugin&cleared=1' ) );
+    exit;
+} );
+```
+
 ## Licence
 
 MIT — © William Patton
